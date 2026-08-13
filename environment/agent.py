@@ -8,6 +8,15 @@ class Agent:
         self.size = size
         self.speed = 5
 
+    @property
+    def rect(self):
+        return pygame.Rect(
+            self.x,
+            self.y,
+            self.size,
+            self.size
+        )
+
     def handle_input(self):
         keys = pygame.key.get_pressed()
 
@@ -27,5 +36,5 @@ class Agent:
         pygame.draw.rect(
             screen,
             (50, 150, 255),
-            (self.x, self.y, self.size, self.size)
+            self.rect
         )
