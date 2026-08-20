@@ -1,6 +1,6 @@
 import pygame
 
-from environment.world import World
+from environment.world import World, RIGHT
 
 
 pygame.init()
@@ -14,6 +14,17 @@ pygame.display.set_caption("Adaptive 2D AI Agent")
 clock = pygame.time.Clock()
 
 world = World(WIDTH, HEIGHT)
+
+# Test the RL interface
+state = world.reset()
+
+print("Initial state:", state)
+
+next_state, reward, done = world.step(RIGHT)
+
+print("Next state:", next_state)
+print("Reward:", reward)
+print("Done:", done)
 
 running = True
 
