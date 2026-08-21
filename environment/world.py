@@ -25,7 +25,6 @@ class World:
         ]
 
         self.resource = Resource(650, 150)
-
         self.exit = Exit(700, 500)
 
     def update(self):
@@ -43,130 +42,128 @@ class World:
         self.check_resource()
 
     def step(self, action):
-        """
-        Apply one action and return:
-
-        state  -> new state
-        reward -> feedback for the action
-        done   -> whether the episode has ended
-        """
-
         previous_x = self.agent.x
         previous_y = self.agent.y
-        previous_resource_collected = self.resource.collected
 
-        # Distance to the current objective BEFORE the action
+        previous_resource_collected = self.resource.collected
         previous_distance = self.distance_to_current_target()
 
-        # Apply action
-        if action == UP:
-            self.agent.y -= self.agent.speed
+        self.agent.move(action)
 
-        elif action == DOWN:
-            self.agent.y += self.agent.speed
-
-        elif action == LEFT:
-            self.agent.x -= self.agent.speed
-
-        elif action == RIGHT:
-            self.agent.x += self.agent.speed
-
-        # Keep agent inside the environment
         self.keep_agent_inside()
 
-        # Check collision
         collision = self.check_collision()
 
         if collision:
             self.agent.x = previous_x
             self.agent.y = previous_y
 
-        # Check resource
         self.check_resource()
 
-        # Distance AFTER the action
         current_distance = self.distance_to_current_target()
 
-        # --------------------------------------------------
-        # Reward calculation
-        # --------------------------------------------------
-
-        # Small penalty for taking time
         reward = -0.01
 
-        # Reward progress toward current objective
         distance_change = previous_distance - current_distance
-
         reward += distance_change * 0.05
 
-        # Collision penalty
         if collision:
             reward -= 1
 
-        # Resource collection reward
         if (
             not previous_resource_collected
             and self.resource.collected
         ):
             reward += 10
 
-        # Goal reward
         done = self.reached_goal()
 
         if done:
             reward += 100
 
-        # New state
-        state = self.get_state()
+        return self.get_state(), reward, done
 
-        return state, reward, done
+    def discretize_distance(self, distance):
+        if distance < 20:
+            return 0
 
-    def get_state(self):
-        """
-        Return the current state of the environment.
-        """
+        elif distance < 50:
+            return 1
 
-        return [
-            self.agent.x,
-            self.agent.y,
-            self.resource.x,
-            self.resource.y,
-            int(self.resource.collected),
-            self.exit.rect.x,
-            self.exit.rect.y,
-        ]
+        elif distance < 100:
+            return 2
 
-    def reset(self):
-        """
-        Reset the environment for a new episode.
-        """
+        else:
+            return 3
 
-        self.agent.x = 100
-        self.agent.y = 300
-
-        self.resource.collected = False
-
-        return self.get_state()
-
-    def distance_to_current_target(self):
-        """
-        Calculate the Euclidean distance between the agent
-        and its current objective.
-
-        Before collecting the resource:
-            target = resource
-
-        After collecting the resource:
-            target = exit
-        """
-
+    def get_target_direction(self):
         agent_center_x = self.agent.x + self.agent.size / 2
         agent_center_y = self.agent.y + self.agent.size / 2
 
         if not self.resource.collected:
             target_x = self.resource.x
             target_y = self.resource.y
+        else:
+            target_x = self.exit.rect.centerx
+            target_y = self.exit.rect.centery
 
+        dx = target_x - agent_center_x
+        dy = target_y - agent_center_y
+
+        if dx > 10:
+            horizontal = 1
+        elif dx < -10:
+            horizontal = -1
+        else:
+            horizontal = 0
+
+        if dy > 10:
+            vertical = 1
+        elif dy < -10:
+            vertical = -1
+        else:
+            vertical = 0
+
+        return horizontal, vertical
+
+    def get_state(self):
+        sensors = self.agent.get_sensor_distances(
+            self.obstacles,
+            self.width,
+            self.height
+        )
+
+        sensor_state = (
+            self.discretize_distance(sensors["up"]),
+            self.discretize_distance(sensors["down"]),
+            self.discretize_distance(sensors["left"]),
+            self.discretize_distance(sensors["right"]),
+            self.discretize_distance(sensors["up_left"]),
+            self.discretize_distance(sensors["up_right"]),
+            self.discretize_distance(sensors["down_left"]),
+            self.discretize_distance(sensors["down_right"])
+        )
+
+        target_horizontal, target_vertical = (
+            self.get_target_direction()
+        )
+
+        resource_collected = int(self.resource.collected)
+
+        return (
+            *sensor_state,
+            target_horizontal,
+            target_vertical,
+            resource_collected
+        )
+
+    def distance_to_current_target(self):
+        agent_center_x = self.agent.x + self.agent.size / 2
+        agent_center_y = self.agent.y + self.agent.size / 2
+
+        if not self.resource.collected:
+            target_x = self.resource.x
+            target_y = self.resource.y
         else:
             target_x = self.exit.rect.centerx
             target_y = self.exit.rect.centery
@@ -177,7 +174,13 @@ class World:
         )
 
     def draw(self, screen):
-        self.agent.draw(screen)
+        sensors = self.agent.get_sensor_distances(
+            self.obstacles,
+            self.width,
+            self.height
+        )
+
+        self.agent.draw(screen, sensors)
 
         for obstacle in self.obstacles:
             obstacle.draw(screen)
@@ -223,3 +226,11 @@ class World:
             self.resource.collected
             and self.reached_exit()
         )
+
+    def reset(self):
+        self.agent.x = 100
+        self.agent.y = 300
+
+        self.resource.collected = False
+
+        return self.get_state()

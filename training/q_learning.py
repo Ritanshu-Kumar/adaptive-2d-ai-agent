@@ -7,7 +7,7 @@ from environment.world import World
 
 WIDTH = 800
 HEIGHT = 600
-NUM_EPISODES = 1000
+NUM_EPISODES = 500
 MAX_STEPS = 500
 FPS = 60
 RENDER_EVERY = 1
@@ -56,6 +56,7 @@ for episode in range(NUM_EPISODES):
         break
 
     state = world.reset()
+    #print("State:", state)
 
     total_reward = 0
     steps = 0
@@ -119,8 +120,6 @@ for episode in range(NUM_EPISODES):
         f"Success: {done} | "
         f"Epsilon: {agent.epsilon:.3f}"
     )
-
-
 pygame.quit()
 
 sys.stdout = original_stdout
