@@ -1,4 +1,6 @@
 import math
+from collections import deque
+
 import pygame
 
 from environment.agent import Agent
@@ -15,6 +17,7 @@ class World:
     def __init__(self, width, height):
         self.width = width
         self.height = height
+        self.grid_size = 40
 
         self.agent = Agent(100, 300)
 
@@ -26,6 +29,69 @@ class World:
 
         self.resource = Resource(650, 150)
         self.exit = Exit(700, 500)
+
+        self._build_distance_maps()
+
+    def _build_distance_maps(self):
+        gs = self.grid_size
+        cols = self.width // gs
+        rows = self.height // gs
+
+        blocked = [[False] * rows for _ in range(cols)]
+        for gx in range(cols):
+            for gy in range(rows):
+                cell_rect = pygame.Rect(gx * gs, gy * gs, gs, gs)
+                for obstacle in self.obstacles:
+                    if cell_rect.colliderect(obstacle.rect):
+                        blocked[gx][gy] = True
+                        break
+
+        def bfs_from(target_x, target_y):
+            start = (
+                min(int(target_x) // gs, cols - 1),
+                min(int(target_y) // gs, rows - 1),
+            )
+
+            dist = [[None] * rows for _ in range(cols)]
+
+            if blocked[start[0]][start[1]]:
+                return dist
+
+            dist[start[0]][start[1]] = 0
+            q = deque([start])
+
+            while q:
+                cx, cy = q.popleft()
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = cx + dx, cy + dy
+                    if 0 <= nx < cols and 0 <= ny < rows:
+                        if not blocked[nx][ny] and dist[nx][ny] is None:
+                            dist[nx][ny] = dist[cx][cy] + 1
+                            q.append((nx, ny))
+
+            return dist
+
+        self.dist_to_resource = bfs_from(
+            self.resource.x, self.resource.y
+        )
+        self.dist_to_exit = bfs_from(
+            self.exit.rect.centerx, self.exit.rect.centery
+        )
+
+    def _grid_distance(self, dist_map):
+        gs = self.grid_size
+        cols = self.width // gs
+        rows = self.height // gs
+
+        gx = min(max(int(self.agent.x) // gs, 0), cols - 1)
+        gy = min(max(int(self.agent.y) // gs, 0), rows - 1)
+
+        d = dist_map[gx][gy]
+
+        if d is None:
+            return 1000
+
+        return d
 
     def update(self):
         old_x = self.agent.x
@@ -65,7 +131,7 @@ class World:
         reward = -0.01
 
         distance_change = previous_distance - current_distance
-        reward += distance_change * 0.05
+        reward += distance_change * 0.1
 
         if collision:
             reward -= 1
@@ -87,14 +153,13 @@ class World:
         if distance < 20:
             return 0
 
-        elif distance < 50:
+        if distance < 50:
             return 1
 
-        elif distance < 100:
+        if distance < 100:
             return 2
 
-        else:
-            return 3
+        return 3
 
     def get_target_direction(self):
         agent_center_x = self.agent.x + self.agent.size / 2
@@ -126,6 +191,14 @@ class World:
 
         return horizontal, vertical
 
+    def get_position_grid(self):
+        grid_size = 40
+
+        grid_x = int(self.agent.x // grid_size)
+        grid_y = int(self.agent.y // grid_size)
+
+        return grid_x, grid_y
+
     def get_state(self):
         sensors = self.agent.get_sensor_distances(
             self.obstacles,
@@ -144,6 +217,8 @@ class World:
             self.discretize_distance(sensors["down_right"])
         )
 
+        grid_x, grid_y = self.get_position_grid()
+
         target_horizontal, target_vertical = (
             self.get_target_direction()
         )
@@ -151,6 +226,8 @@ class World:
         resource_collected = int(self.resource.collected)
 
         return (
+            grid_x,
+            grid_y,
             *sensor_state,
             target_horizontal,
             target_vertical,
@@ -158,20 +235,10 @@ class World:
         )
 
     def distance_to_current_target(self):
-        agent_center_x = self.agent.x + self.agent.size / 2
-        agent_center_y = self.agent.y + self.agent.size / 2
-
         if not self.resource.collected:
-            target_x = self.resource.x
-            target_y = self.resource.y
+            return self._grid_distance(self.dist_to_resource)
         else:
-            target_x = self.exit.rect.centerx
-            target_y = self.exit.rect.centery
-
-        return math.sqrt(
-            (target_x - agent_center_x) ** 2
-            + (target_y - agent_center_y) ** 2
-        )
+            return self._grid_distance(self.dist_to_exit)
 
     def draw(self, screen):
         sensors = self.agent.get_sensor_distances(
@@ -230,7 +297,6 @@ class World:
     def reset(self):
         self.agent.x = 100
         self.agent.y = 300
-
         self.resource.collected = False
 
         return self.get_state()

@@ -7,10 +7,11 @@ from environment.world import World
 
 WIDTH = 800
 HEIGHT = 600
+
 NUM_EPISODES = 500
 MAX_STEPS = 500
+
 FPS = 60
-RENDER_EVERY = 1
 VISUAL_EPISODES = NUM_EPISODES
 
 
@@ -29,7 +30,11 @@ success_history = []
 
 running = True
 
-log_file = open("training/q_learning_log.txt", "w", encoding="utf-8")
+log_file = open(
+    "training/q_learning_log.txt",
+    "w",
+    encoding="utf-8"
+)
 
 original_stdout = sys.stdout
 
@@ -50,13 +55,13 @@ class Tee:
 
 sys.stdout = Tee(original_stdout, log_file)
 
+
 for episode in range(NUM_EPISODES):
 
     if not running:
         break
 
     state = world.reset()
-    #print("State:", state)
 
     total_reward = 0
     steps = 0
@@ -90,12 +95,11 @@ for episode in range(NUM_EPISODES):
         steps += 1
 
         if episode < VISUAL_EPISODES:
+            screen.fill((30, 30, 30))
 
-          screen.fill((30, 30, 30))
+            world.draw(screen)
 
-          world.draw(screen)
-
-          pygame.display.flip()
+            pygame.display.flip()
 
         if episode < 10:
             clock.tick(FPS)
@@ -120,6 +124,8 @@ for episode in range(NUM_EPISODES):
         f"Success: {done} | "
         f"Epsilon: {agent.epsilon:.3f}"
     )
+
+
 pygame.quit()
 
 sys.stdout = original_stdout

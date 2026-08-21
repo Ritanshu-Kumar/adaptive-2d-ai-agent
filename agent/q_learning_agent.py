@@ -27,37 +27,21 @@ class QLearningAgent:
         )
 
     def get_discrete_state(self, state):
-        agent_x = state[0]
-        agent_y = state[1]
-        resource_collected = state[4]
-
-        grid_size = 40
-
-        grid_x = int(agent_x // grid_size)
-        grid_y = int(agent_y // grid_size)
-
-        return (
-            grid_x,
-            grid_y,
-            resource_collected,
-        )
+        return tuple(state)
 
     def choose_action(self, state):
-        discrete_state = self.get_discrete_state(state)
+        state = self.get_discrete_state(state)
 
-        # Exploration
         if random.random() < self.epsilon:
             return random.choice(self.actions)
 
-        # Exploitation
-        q_values = self.q_table[discrete_state]
-
+        q_values = self.q_table[state]
         max_q = max(q_values)
 
         best_actions = [
             action
-            for action, q_value in zip(self.actions, q_values)
-            if q_value == max_q
+            for action, value in zip(self.actions, q_values)
+            if value == max_q
         ]
 
         return random.choice(best_actions)
@@ -74,6 +58,7 @@ class QLearningAgent:
             target = reward
         else:
             best_next_q = max(self.q_table[next_state])
+
             target = (
                 reward
                 + self.discount_factor * best_next_q
@@ -87,5 +72,5 @@ class QLearningAgent:
     def decay_epsilon(self):
         self.epsilon = max(
             self.epsilon_min,
-            self.epsilon * self.epsilon_decay,
+            self.epsilon * self.epsilon_decay
         )
