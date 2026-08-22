@@ -74,3 +74,6 @@ class QLearningAgent:
             self.epsilon_min,
             self.epsilon * self.epsilon_decay
         )
+    
+    def set_evaluation_mode(self):
+        self.epsilon = 0.0

@@ -4,6 +4,8 @@ import sys
 from agent.q_learning_agent import QLearningAgent
 from environment.world import World
 
+from training.model_io import save_q_table
+
 
 WIDTH = 800
 HEIGHT = 600
@@ -125,6 +127,12 @@ for episode in range(NUM_EPISODES):
         f"Epsilon: {agent.epsilon:.3f}"
     )
 
+save_q_table(
+    agent.q_table,
+    "training/q_table.pkl"
+)
+
+print("\nQ-table saved to training/q_table.pkl")    
 
 pygame.quit()
 
